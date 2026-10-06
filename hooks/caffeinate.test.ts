@@ -2,9 +2,10 @@ import type { On } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
 
 function fakeEngine(on: On, exitCode?: number) {
-  const calls = { spawned: 0, killed: 0, status: undefined as string | undefined }
-  on('process.spawn', async function* () {
+  const calls = { spawned: 0, killed: 0, status: undefined as string | undefined, argv: [] as string[] }
+  on('process.spawn', async function* (_$, e) {
     calls.spawned++
+    calls.argv = [...e.argv]
     if (exitCode !== undefined) return { value: { code: exitCode, signal: null } }
     try {
       // a caffeinate that runs until it is killed
@@ -80,4 +81,22 @@ test('a caffeinate that fails is not respawned in a loop', async ($, on) => {
   await settle()
 
   expect(calls.spawned).toBe(1)
+})
+
+test('holds only the display and idle sleep by default', async ($, on) => {
+  const calls = fakeEngine(on)
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+
+  await $.turn.complete(done)
+  expect(calls.argv).toEqual(['/usr/bin/caffeinate', '-d', '-i', '-t', '300'])
+})
+
+test('also holds lid-closed sleep when keepAwakeLidClosed is on', { options: { keepAwakeLidClosed: true } }, async ($, on) => {
+  const calls = fakeEngine(on)
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+
+  await $.turn.complete(done)
+  expect(calls.argv).toEqual(['/usr/bin/caffeinate', '-d', '-i', '-s', '-t', '300'])
 })

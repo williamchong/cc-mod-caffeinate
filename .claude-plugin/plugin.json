@@ -1,8 +1,16 @@
 {
   "name": "cc-mod-caffeinate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Keep the Mac's screen awake with caffeinate only while Claude is actively working",
   "author": { "name": "William Chong" },
   "repository": "https://github.com/williamchong/cc-mod-caffeinate",
-  "license": "MIT"
+  "license": "MIT",
+  "userConfig": {
+    "keepAwakeLidClosed": {
+      "type": "boolean",
+      "title": "Stay awake with the lid closed",
+      "description": "Also prevent system sleep (caffeinate -s) while Claude works, so it keeps going with the lid closed. AC power only.",
+      "default": false
+    }
+  }
 }

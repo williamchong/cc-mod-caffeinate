@@ -10,6 +10,10 @@ const LEASE_SECONDS = 300
 
 const WAITING_NOTIFICATION = /permission|elicitation|idle/
 
+// -d keeps the display on; -i stops idle sleep; -s, opted into, also stops
+// lid-closed sleep, which macOS honours on AC power only.
+let flags: string[] = []
+
 let isTurnRunning = false
 let isWaiting = false
 let lease: AsyncGenerator<unknown, unknown> | undefined
@@ -24,7 +28,7 @@ async function hold($: EngineInterface) {
     let code: number | null = null
     try {
       child = $.process.spawn({
-        argv: ['/usr/bin/caffeinate', '-d', '-i', '-t', String(LEASE_SECONDS)],
+        argv: ['/usr/bin/caffeinate', ...flags, '-t', String(LEASE_SECONDS)],
       })
       lease = child
       for await (const _ of child) {
@@ -66,7 +70,9 @@ function setWaiting($: EngineInterface, value: boolean) {
   sync($)
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  flags = ['-d', '-i', ...(options.keepAwakeLidClosed === true ? ['-s'] : [])]
+
   on('turn.start', ($, e, next) => {
     setRunning($, true)
     return next(e)

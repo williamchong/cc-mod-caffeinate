@@ -41,9 +41,25 @@ To check it, run this while Claude is working:
 pmset -g assertions | grep caffeinate
 ```
 
+## Options
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `keepAwakeLidClosed` | `false` | Also passes `-s` to `caffeinate`, so Claude keeps working when you close the lid. **AC power only:** on battery, closing the lid still puts the Mac to sleep. |
+
+Set it on the plugin's config screen in `/plugin`. When you run the mod from a checkout (`--plugin-dir` or `CLAUDE_CODE_PLUGIN_DIRS`), set it under `pluginConfigs` in `~/.claude/settings.json` instead:
+
+```json
+"pluginConfigs": {
+  "cc-mod-caffeinate": { "options": { "keepAwakeLidClosed": true } }
+}
+```
+
+The same rules apply with the lid closed: the Mac is released while Claude waits on you and when the turn ends, so it sleeps once there is nothing left to do. Even so, avoid putting a Mac that is plugged in and working into a bag.
+
 ## Alternatives
 
-- **Keeping the Mac awake with the lid closed:** see [jmslau/claude-caffeine](https://github.com/jmslau/claude-caffeine), a menu-bar app that uses `pmset disablesleep`.
+- **Keeping the Mac awake with the lid closed on battery:** see [jmslau/claude-caffeine](https://github.com/jmslau/claude-caffeine), a menu-bar app that uses `pmset disablesleep`.
 - **Linux and Windows:** see [Ami3466/claude-awake](https://github.com/Ami3466/claude-awake).
 
 ## Development
