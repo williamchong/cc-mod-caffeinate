@@ -1,0 +1,13 @@
+{
+  "name": "cc-mod-caffeinate",
+  "description": "A Claude Code mod that keeps the Mac's screen awake only while Claude is actively working",
+  "owner": {
+    "name": "William Chong"
+  },
+  "plugins": [
+    {
+      "name": "cc-mod-caffeinate",
+      "source": "./"
+    }
+  ]
+}

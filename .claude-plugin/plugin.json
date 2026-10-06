@@ -1,0 +1,8 @@
+{
+  "name": "cc-mod-caffeinate",
+  "version": "0.1.0",
+  "description": "Keep the Mac's screen awake with caffeinate only while Claude is actively working",
+  "author": { "name": "William Chong" },
+  "repository": "https://github.com/williamchong/cc-mod-caffeinate",
+  "license": "MIT"
+}
