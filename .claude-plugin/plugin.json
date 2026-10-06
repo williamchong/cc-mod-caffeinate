@@ -11,6 +11,12 @@
       "title": "Stay awake with the lid closed",
       "description": "Also prevent system sleep (caffeinate -s) while Claude works, so it keeps going with the lid closed. AC power only.",
       "default": false
+    },
+    "showStatus": {
+      "type": "boolean",
+      "title": "Show ☕ in the status line",
+      "description": "Pin a ☕ under the prompt while the screen is held.",
+      "default": true
     }
   }
 }

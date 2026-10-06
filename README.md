@@ -46,6 +46,7 @@ pmset -g assertions | grep caffeinate
 | Option | Default | Effect |
 | --- | --- | --- |
 | `keepAwakeLidClosed` | `false` | Also passes `-s` to `caffeinate`, so Claude keeps working when you close the lid. **AC power only:** on battery, closing the lid still puts the Mac to sleep. |
+| `showStatus` | `true` | Pins a ☕ under the prompt while the screen is held. Turn it off to free the line. |
 
 Set it on the plugin's config screen in `/plugin`. When you run the mod from a checkout (`--plugin-dir` or `CLAUDE_CODE_PLUGIN_DIRS`), set it under `pluginConfigs` in `~/.claude/settings.json` instead:
 

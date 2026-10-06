@@ -13,6 +13,7 @@ const WAITING_NOTIFICATION = /permission|elicitation|idle/
 // -d keeps the display on; -i stops idle sleep; -s, opted into, also stops
 // lid-closed sleep, which macOS honours on AC power only.
 let flags: string[] = []
+let showStatus = true
 
 let isTurnRunning = false
 let isWaiting = false
@@ -49,7 +50,7 @@ async function hold($: EngineInterface) {
 
 function sync($: EngineInterface) {
   const isHolding = shouldHold()
-  $.ui.status(isHolding ? '☕' : undefined)
+  if (showStatus) $.ui.status(isHolding ? '☕' : undefined)
   if (isHolding && !lease) void hold($)
   if (!isHolding && lease) {
     // Not awaited: a pending pull on a silent child may hold return() back.
@@ -72,6 +73,7 @@ function setWaiting($: EngineInterface, value: boolean) {
 
 export const register: Register = (on, options) => {
   flags = ['-d', '-i', ...(options.keepAwakeLidClosed === true ? ['-s'] : [])]
+  showStatus = options.showStatus !== false
 
   on('turn.start', ($, e, next) => {
     setRunning($, true)

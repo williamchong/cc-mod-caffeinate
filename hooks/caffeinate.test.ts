@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
 
 function fakeEngine(on: On, exitCode?: number) {
-  const calls = { spawned: 0, killed: 0, status: undefined as string | undefined, argv: [] as string[] }
+  const calls = { spawned: 0, killed: 0, statusCalls: 0, status: undefined as string | undefined, argv: [] as string[] }
   on('process.spawn', async function* (_$, e) {
     calls.spawned++
     calls.argv = [...e.argv]
@@ -15,6 +15,7 @@ function fakeEngine(on: On, exitCode?: number) {
     }
   })
   on('ui.status', (_$, e) => {
+    calls.statusCalls++
     calls.status = e.text
     return { value: undefined }
   })
@@ -99,4 +100,15 @@ test('also holds lid-closed sleep when keepAwakeLidClosed is on', { options: { k
 
   await $.turn.complete(done)
   expect(calls.argv).toEqual(['/usr/bin/caffeinate', '-d', '-i', '-s', '-t', '300'])
+})
+
+test('pins nothing to the status line when showStatus is off', { options: { showStatus: false } }, async ($, on) => {
+  const calls = fakeEngine(on)
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.turn.complete(done)
+  await settle()
+
+  expect(calls.spawned).toBe(1)
+  expect(calls.statusCalls).toBe(0)
 })
