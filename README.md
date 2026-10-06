@@ -57,6 +57,28 @@ Set it on the plugin's config screen in `/plugin`. When you run the mod from a c
 
 The same rules apply with the lid closed: the Mac is released while Claude waits on you and when the turn ends, so it sleeps once there is nothing left to do. Even so, avoid putting a Mac that is plugged in and working into a bag.
 
+## Why not just `caffeinate -w`?
+
+A one-liner keeps the screen on for as long as Claude Code is open:
+
+```sh
+caffeinate -d -w $(pgrep -n claude)
+```
+
+That holds for the whole session, not for the turn. A session left open overnight at an idle prompt keeps the screen on all night, which is the same as turning display sleep off.
+
+| | `caffeinate -d -w` | This mod |
+| --- | --- | --- |
+| Screen held while Claude runs a turn | yes | yes |
+| Screen can sleep when the turn ends | no | yes |
+| Screen can sleep while Claude waits on you | no | yes |
+| Several sessions | one command per session, run by hand | automatic |
+| Shows when the screen is held | no | ☕ in the status line |
+
+Two shell hooks (`UserPromptSubmit` to start `caffeinate`, `Stop` to kill it) get closer, but they keep holding during permission dialogs and questions, and you manage the pid files and stale holds from crashed sessions yourself.
+
+If you quit Claude Code whenever you step away, the one-liner is enough.
+
 ## Alternatives
 
 - **Keeping the Mac awake with the lid closed on battery:** see [jmslau/claude-caffeine](https://github.com/jmslau/claude-caffeine), a menu-bar app that uses `pmset disablesleep`.
