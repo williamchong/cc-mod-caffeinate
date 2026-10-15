@@ -35,7 +35,7 @@ Answer `y` to add the marketplace, then choose a scope (user scope loads it in e
 | done with the turn, with only a dev server, watcher or `Monitor` left in the background | released |
 | done with the turn, or the session ended | released |
 
-Background work is read from the list Claude Code hands its `Stop` hook when a turn ends. A finished background task wakes the session with a new turn, so the hold is checked again each time one finishes. A background Bash command counts as a server and is not held when it looks like one that runs until it is stopped: `dev`, `serve`, `server`, `start`, `watch`, `preview`, `up`, `runserver`, `http.server`, `nodemon`, `--watch` or `tail -f`.
+Background work is read from the list Claude Code hands its `Stop` hook when a turn ends. A finished background task wakes the session with a new turn, so the hold is checked again each time one finishes. A background Bash command counts as a server and is not held when it looks like one that runs until it is stopped: `dev`, `serve`, `server`, `start`, `watch`, `preview`, `up`, `runserver`, `http.server`, `nodemon`, `--watch` or `tail -f`. A server that slips past this list, or a job killed without waking the session, is let go after `backgroundHoldMinutes`.
 
 Claude Code has no event for "a permission prompt was answered", so holding resumes at the next sign of progress: the tool finishing, a denial, or the next model request. While a tool you just approved is running, the screen is not held. Your key press to approve resets the idle timer anyway.
 
@@ -51,6 +51,7 @@ pmset -g assertions | grep caffeinate
 | --- | --- | --- |
 | `keepAwakeLidClosed` | `false` | Also passes `-s` to `caffeinate`, so Claude keeps working when you close the lid. **AC power only:** on battery, closing the lid still puts the Mac to sleep. |
 | `showStatus` | `true` | Pins a ☕ under the prompt while the screen is held. Turn it off to free the line. |
+| `backgroundHoldMinutes` | `60` | Releases the screen this many minutes after a turn ends, even if background jobs still run. It is checked as the 5-minute hold renews, so it fires up to 5 minutes late. `0` holds until they finish. |
 
 Set it on the plugin's config screen in `/plugin`. When you run the mod from a checkout (`--plugin-dir` or `CLAUDE_CODE_PLUGIN_DIRS`), set it under `pluginConfigs` in `~/.claude/settings.json` instead:
 

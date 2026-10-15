@@ -2,18 +2,25 @@ import type { On } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
 
 function fakeEngine(on: On, exitCode?: number) {
-  const calls = { spawned: 0, killed: 0, statusCalls: 0, status: undefined as string | undefined, argv: [] as string[] }
+  const calls = { spawned: 0, killed: 0, statusCalls: 0, status: undefined as string | undefined, argv: [] as string[], now: 0, expire: () => {} }
+  let isExpired = false
+  // ends the running caffeinate as its -t timeout would
+  calls.expire = () => { isExpired = true }
   on('process.spawn', async function* (_$, e) {
     calls.spawned++
+    isExpired = false
     calls.argv = [...e.argv]
     if (exitCode !== undefined) return { value: { code: exitCode, signal: null } }
     try {
       // a caffeinate that runs until it is killed
-      while (true) yield { stream: 'stdout' as const, text: '.' }
+      while (!isExpired) yield { stream: 'stdout' as const, text: '.' }
+      return { value: { code: 0, signal: null } }
     } finally {
       calls.killed++
     }
   })
+  // mock.clock would wait for the event loop to settle, which the child above never lets it do
+  on('clock.now', () => ({ value: calls.now }))
   on('ui.status', (_$, e) => {
     calls.statusCalls++
     calls.status = e.text
@@ -24,13 +31,17 @@ function fakeEngine(on: On, exitCode?: number) {
   on('classic.PermissionRequest', () => ({}))
   on('classic.PostToolUse', () => ({}))
   on('classic.Stop', () => ({}))
+  on('session.end', () => ({ sessionId: 's1' }))
   return calls
 }
 
 // Releases are not awaited by the mod; let the killed child's cleanup run.
-async function settle() {
-  for (let i = 0; i < 20; i++) await Promise.resolve()
+async function settle(ticks = 20) {
+  for (let i = 0; i < ticks; i++) await Promise.resolve()
 }
+
+// A renewal reads the clock and spawns through the engine: many microtask turns.
+const RENEWAL_TICKS = 2000
 
 const done = { answer: '', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' } as const
 const toolDone = { tool_name: 'Bash', tool_input: {}, tool_response: '', tool_use_id: 'u1' } as never
@@ -152,4 +163,66 @@ test('does not hold for a background server or watcher', async ($, on) => {
   await settle()
   expect(calls.status).toBe(undefined)
   expect(calls.killed).toBe(1)
+})
+
+test('lets a background hold go once the limit passes', async ($, on) => {
+  const calls = fakeEngine(on)
+  const start = 1_000_000
+  calls.now = start
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.classic.Stop(stopWith({ type: 'shell', command: './run.sh' }))
+  await $.turn.complete(done)
+
+  calls.now = start + 59 * 60_000
+  calls.expire()
+  await settle(RENEWAL_TICKS)
+  expect(calls.spawned).toBe(2)
+  expect(calls.status).toBe('☕')
+
+  calls.now = start + 60 * 60_000
+  calls.expire()
+  await settle(RENEWAL_TICKS)
+  const [spawned, status] = [calls.spawned, calls.status]
+  await $.session.end({ reason: 'other' } as never)
+  await settle()
+  expect(spawned).toBe(2)
+  expect(status).toBe(undefined)
+})
+
+test('holds for background jobs without a limit when backgroundHoldMinutes is 0', { options: { backgroundHoldMinutes: 0 } }, async ($, on) => {
+  const calls = fakeEngine(on)
+  const start = 1_000_000
+  calls.now = start
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.classic.Stop(stopWith({ type: 'shell', command: './run.sh' }))
+  await $.turn.complete(done)
+
+  calls.now = start + 24 * 60 * 60_000
+  calls.expire()
+  await settle(RENEWAL_TICKS)
+  expect(calls.spawned).toBe(2)
+  expect(calls.status).toBe('☕')
+
+  await $.session.end({ reason: 'other' } as never)
+  await settle()
+})
+
+test('never lets go of a running turn when the limit has passed', async ($, on) => {
+  const calls = fakeEngine(on)
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.classic.Stop(stopWith({ type: 'shell', command: './run.sh' }))
+  await $.turn.complete(done)
+  await $.turn.start({ text: '', turnId: 't2' })
+
+  calls.now = 2 * 60 * 60_000
+  calls.expire()
+  await settle(RENEWAL_TICKS)
+  const [spawned, status] = [calls.spawned, calls.status]
+  await $.session.end({ reason: 'other' } as never)
+  await settle()
+  expect(spawned).toBe(2)
+  expect(status).toBe('☕')
 })

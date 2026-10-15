@@ -28,9 +28,12 @@ function isBackgroundJob(task: BackgroundTask) {
 // lid-closed sleep, which macOS honours on AC power only.
 let flags: string[] = []
 let showStatus = true
+// A missed server or a job that never wakes the session is let go after this.
+let backgroundLimitMs = 0
 
 let isTurnRunning = false
 let hasBackgroundJob = false
+let backgroundSince = 0
 let isWaiting = false
 let lease: AsyncGenerator<unknown, unknown> | undefined
 
@@ -59,6 +62,16 @@ async function hold($: EngineInterface) {
     if (code !== 0) {
       lease = undefined
       return
+    }
+    if (!isTurnRunning && backgroundLimitMs > 0) {
+      const now = await $.clock.now()
+      if (lease !== child) return
+      if (now - backgroundSince >= backgroundLimitMs) {
+        hasBackgroundJob = false
+        lease = undefined
+        sync($)
+        return
+      }
     }
   }
 }
@@ -89,6 +102,8 @@ function setWaiting($: EngineInterface, value: boolean) {
 export const register: Register = (on, options) => {
   flags = ['-d', '-i', ...(options.keepAwakeLidClosed === true ? ['-s'] : [])]
   showStatus = options.showStatus !== false
+  const minutes = options.backgroundHoldMinutes
+  backgroundLimitMs = (typeof minutes === 'number' && minutes >= 0 ? minutes : 60) * 60_000
 
   on('turn.start', ($, e, next) => {
     // The turn holds anyway; its Stop says again what is left in the background.
@@ -106,10 +121,11 @@ export const register: Register = (on, options) => {
 
   // A finished background task wakes the session with a new turn, whose Stop
   // lists what is still running, so this snapshot never outlives the work.
-  on('classic.Stop', ($, e, next) => {
+  on('classic.Stop', async ($, e, next) => {
     if (e.agent_id === undefined) {
       hasBackgroundJob = (e.background_tasks ?? []).some(isBackgroundJob)
       sync($)
+      if (hasBackgroundJob && backgroundLimitMs > 0) backgroundSince = await $.clock.now()
     }
     return next(e)
   })

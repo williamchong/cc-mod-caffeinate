@@ -17,6 +17,12 @@
       "title": "Show ☕ in the status line",
       "description": "Pin a ☕ under the prompt while the screen is held.",
       "default": true
+    },
+    "backgroundHoldMinutes": {
+      "type": "number",
+      "title": "Max minutes to hold for background jobs",
+      "description": "Release the screen this long after Claude's turn ends, even if background jobs still run. 0 holds until they finish.",
+      "default": 60
     }
   }
 }
