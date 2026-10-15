@@ -23,6 +23,7 @@ function fakeEngine(on: On, exitCode?: number) {
   on('turn.complete', () => ({ text: '' }))
   on('classic.PermissionRequest', () => ({}))
   on('classic.PostToolUse', () => ({}))
+  on('classic.Stop', () => ({}))
   return calls
 }
 
@@ -111,4 +112,44 @@ test('pins nothing to the status line when showStatus is off', { options: { show
 
   expect(calls.spawned).toBe(1)
   expect(calls.statusCalls).toBe(0)
+})
+
+const stopWith = (...tasks: { type: string; command?: string }[]) =>
+  ({ stop_hook_active: false, background_tasks: tasks.map((t, i) => ({ id: `b${i}`, status: 'running', description: '', ...t })) }) as never
+
+test('keeps holding after the turn while a background job runs', async ($, on) => {
+  const calls = fakeEngine(on)
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.classic.Stop(stopWith({ type: 'shell', command: 'pnpm dev' }, { type: 'subagent' }, { type: 'shell', command: 'npm test' }))
+  await $.turn.complete(done)
+  await settle()
+  expect(calls.status).toBe('☕')
+  expect(calls.killed).toBe(0)
+
+  // the job's notification wakes the session; nothing is left when it stops
+  await $.turn.start({ text: '', turnId: 't2' })
+  await $.classic.Stop(stopWith())
+  await $.turn.complete({ ...done, turnId: 't2' })
+  await settle()
+  expect(calls.status).toBe(undefined)
+  expect(calls.killed).toBe(1)
+})
+
+test('does not hold for a background server or watcher', async ($, on) => {
+  const calls = fakeEngine(on)
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.classic.Stop(stopWith(
+    { type: 'shell', command: 'pnpm run dev' },
+    { type: 'shell', command: 'python3 -m http.server 8000' },
+    { type: 'shell', command: 'tail -f log.txt' },
+    { type: 'shell', command: 'npm run test:watch' },
+    { type: 'shell', command: 'bash -c "npm run dev"' },
+    { type: 'monitor' },
+  ))
+  await $.turn.complete(done)
+  await settle()
+  expect(calls.status).toBe(undefined)
+  expect(calls.killed).toBe(1)
 })

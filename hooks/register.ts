@@ -1,4 +1,4 @@
-import type { EngineInterface, Register } from 'claude-code'
+import type { ClassicHookInputs, EngineInterface, Register } from 'claude-code'
 
 // Each session holds its own `caffeinate` while it works. macOS keeps the
 // display awake while any process holds an assertion, so several sessions
@@ -10,17 +10,32 @@ const LEASE_SECONDS = 300
 
 const WAITING_NOTIFICATION = /permission|elicitation|idle/
 
+// A background command that serves or watches runs until someone stops it,
+// so it is not work that should keep the screen on after the turn.
+const LONG_RUNNING_COMMAND =
+  /(?:^|[\s;&|:"'])(?:dev|serve|server|start|watch|preview|nodemon|runserver|http\.server|up)(?=$|[\s;&|:"'])|--watch(?:All)?\b|\btail\s+-[fF]\b/
+
+type BackgroundTask = NonNullable<ClassicHookInputs['Stop']['background_tasks']>[number]
+
+// Background work that ends on its own and wakes the session when done.
+function isBackgroundJob(task: BackgroundTask) {
+  if (task.type === 'subagent' || task.type === 'workflow') return true
+  if (task.type === 'shell') return !LONG_RUNNING_COMMAND.test(task.command ?? '')
+  return false
+}
+
 // -d keeps the display on; -i stops idle sleep; -s, opted into, also stops
 // lid-closed sleep, which macOS honours on AC power only.
 let flags: string[] = []
 let showStatus = true
 
 let isTurnRunning = false
+let hasBackgroundJob = false
 let isWaiting = false
 let lease: AsyncGenerator<unknown, unknown> | undefined
 
 function shouldHold() {
-  return isTurnRunning && !isWaiting
+  return (isTurnRunning || hasBackgroundJob) && !isWaiting
 }
 
 async function hold($: EngineInterface) {
@@ -76,6 +91,9 @@ export const register: Register = (on, options) => {
   showStatus = options.showStatus !== false
 
   on('turn.start', ($, e, next) => {
+    // The turn holds anyway; its Stop says again what is left in the background.
+    // An interrupted turn fires no Stop, so jobs it leaves are no longer held.
+    if (e.agentId === undefined) hasBackgroundJob = false
     setRunning($, true)
     return next(e)
   })
@@ -86,7 +104,18 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // A finished background task wakes the session with a new turn, whose Stop
+  // lists what is still running, so this snapshot never outlives the work.
+  on('classic.Stop', ($, e, next) => {
+    if (e.agent_id === undefined) {
+      hasBackgroundJob = (e.background_tasks ?? []).some(isBackgroundJob)
+      sync($)
+    }
+    return next(e)
+  })
+
   on('session.end', ($, e, next) => {
+    hasBackgroundJob = false
     setRunning($, false)
     return next(e)
   })

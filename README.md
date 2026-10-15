@@ -31,7 +31,11 @@ Answer `y` to add the marketplace, then choose a scope (user scope loads it in e
 | --- | --- |
 | running a turn (thinking, calling tools) | held awake |
 | showing a permission dialog, asking a question, or waiting on MCP input | released |
+| done with the turn, but a background subagent, workflow or Bash job is still running | held awake |
+| done with the turn, with only a dev server, watcher or `Monitor` left in the background | released |
 | done with the turn, or the session ended | released |
+
+Background work is read from the list Claude Code hands its `Stop` hook when a turn ends. A finished background task wakes the session with a new turn, so the hold is checked again each time one finishes. A background Bash command counts as a server and is not held when it looks like one that runs until it is stopped: `dev`, `serve`, `server`, `start`, `watch`, `preview`, `up`, `runserver`, `http.server`, `nodemon`, `--watch` or `tail -f`.
 
 Claude Code has no event for "a permission prompt was answered", so holding resumes at the next sign of progress: the tool finishing, a denial, or the next model request. While a tool you just approved is running, the screen is not held. Your key press to approve resets the idle timer anyway.
 
