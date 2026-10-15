@@ -8,7 +8,8 @@ import type { ClassicHookInputs, EngineInterface, Register } from 'claude-code'
 // unloading never leaves an orphan caffeinate holding the screen for long.
 const LEASE_SECONDS = 300
 
-const WAITING_NOTIFICATION = /permission|elicitation|idle/
+// Not `idle`: it comes after the turn ends, while background jobs may hold.
+const WAITING_NOTIFICATION = /permission|elicitation/
 
 // A background command that serves or watches runs until someone stops it,
 // so it is not work that should keep the screen on after the turn.
@@ -106,9 +107,14 @@ export const register: Register = (on, options) => {
   backgroundLimitMs = (typeof minutes === 'number' && minutes >= 0 ? minutes : 60) * 60_000
 
   on('turn.start', ($, e, next) => {
+    // A subagent's turn is part of main's or of a background job, held either way.
+    if (e.agentId !== undefined) {
+      setWaiting($, false)
+      return next(e)
+    }
     // The turn holds anyway; its Stop says again what is left in the background.
     // An interrupted turn fires no Stop, so jobs it leaves are no longer held.
-    if (e.agentId === undefined) hasBackgroundJob = false
+    hasBackgroundJob = false
     setRunning($, true)
     return next(e)
   })

@@ -32,6 +32,7 @@ function fakeEngine(on: On, exitCode?: number) {
   on('classic.PostToolUse', () => ({}))
   on('classic.Stop', () => ({}))
   on('session.end', () => ({ sessionId: 's1' }))
+  on('classic.Notification', () => ({}))
   return calls
 }
 
@@ -225,4 +226,37 @@ test('never lets go of a running turn when the limit has passed', async ($, on) 
   await settle()
   expect(spawned).toBe(2)
   expect(status).toBe('☕')
+})
+
+test('keeps a background hold when the prompt goes idle', async ($, on) => {
+  const calls = fakeEngine(on)
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.classic.Stop(stopWith({ type: 'subagent' }))
+  await $.turn.complete(done)
+  await $.classic.Notification({ message: '', notification_type: 'idle_prompt' } as never)
+  await settle()
+  const [killed, status] = [calls.killed, calls.status]
+  await $.session.end({ reason: 'other' } as never)
+  await settle()
+  expect(killed).toBe(0)
+  expect(status).toBe('☕')
+})
+
+test('a background subagent turn does not keep the hold past the limit', async ($, on) => {
+  const calls = fakeEngine(on)
+
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.classic.Stop(stopWith({ type: 'subagent' }))
+  await $.turn.complete(done)
+  await $.turn.start({ text: 'go', turnId: 's1', agentId: 'sub' })
+
+  calls.now = 2 * 60 * 60_000
+  calls.expire()
+  await settle(RENEWAL_TICKS)
+  const [spawned, status] = [calls.spawned, calls.status]
+  await $.session.end({ reason: 'other' } as never)
+  await settle()
+  expect(spawned).toBe(1)
+  expect(status).toBe(undefined)
 })
