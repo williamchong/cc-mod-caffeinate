@@ -6,7 +6,7 @@ A [Claude Code](https://claude.com/claude-code) mod that keeps your Mac's screen
 - **Works across sessions.** Each session holds its own `caffeinate`, and macOS keeps the display on while any of them asks, so the screen sleeps only once no session is working.
 - **Nothing to install or run.** It runs inside Claude Code as a function-hooks mod: no app, no `npx`, no admin rights, no background server.
 - **Recovers from crashes.** Each hold is a `caffeinate -t 300` renewed while the turn runs, so a session that dies leaves no stray hold for more than 5 minutes.
-- **Shows its state.** A ☕ appears beside the mode labels in the prompt footer while the screen is held.
+- **Shows its state.** A "☕ awake" label appears beside the mode labels in the prompt footer while the screen is held.
 
 Claude Code already runs `caffeinate -i` while it works, which stops the Mac from going to sleep but still lets the screen turn off. This mod adds `-d` to keep the display on as well.
 
@@ -50,7 +50,7 @@ pmset -g assertions | grep caffeinate
 | Option | Default | Effect |
 | --- | --- | --- |
 | `keepAwakeLidClosed` | `false` | Also passes `-s` to `caffeinate`, so Claude keeps working when you close the lid. **AC power only:** on battery, closing the lid still puts the Mac to sleep. |
-| `showStatus` | `true` | Shows a ☕ in the prompt footer while the screen is held. |
+| `showStatus` | `true` | Shows "☕ awake" in the prompt footer while the screen is held. |
 | `backgroundHoldMinutes` | `60` | Releases the screen this many minutes after a turn ends, even if background jobs still run. It is checked as the 5-minute hold renews, so it fires up to 5 minutes late. `0` holds until they finish. |
 
 Set it on the plugin's config screen in `/plugin`. When you run the mod from a checkout (`--plugin-dir` or `CLAUDE_CODE_PLUGIN_DIRS`), set it under `pluginConfigs` in `~/.claude/settings.json` instead:
@@ -79,7 +79,7 @@ That holds for the whole session, not for the turn. A session left open overnigh
 | Screen can sleep when the turn ends | no | yes |
 | Screen can sleep while Claude waits on you | no | yes |
 | Several sessions | one command per session, run by hand | automatic |
-| Shows when the screen is held | no | ☕ in the status line |
+| Shows when the screen is held | no | "☕ awake" in the prompt footer |
 
 Two shell hooks (`UserPromptSubmit` to start `caffeinate`, `Stop` to kill it) get closer, but they keep holding during permission dialogs and questions, and you manage the pid files and stale holds from crashed sessions yourself.
 

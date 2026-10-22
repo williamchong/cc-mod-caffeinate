@@ -122,7 +122,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     // Read first: the read is what redraws the footer when the hold changes.
     if (!(await read($, holdingState)) || shownHolding !== true) return next(e)
-    return next({ ...e, props: { ...e.props, modes: [...e.props.modes, '☕'] } })
+    return next({ ...e, props: { ...e.props, modes: [...e.props.modes, '☕ awake'] } })
   })
 
   on('turn.start', ($, e, next) => {

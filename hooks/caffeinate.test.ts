@@ -125,7 +125,7 @@ test('adds ☕ to the prompt footer modes only while holding', async ($, on) => 
   for (const surface of ['terminal', 'desktop'] as const) {
     await $.turn.start({ text: 'hi', turnId: 't1' })
     let ui = await $.ui.mount({ ...footer, surface })
-    expect((await ui.find({ type: 'Text', text: /focus/ }))?.text).toBe('focus & ☕')
+    expect((await ui.find({ type: 'Text', text: /focus/ }))?.text).toBe('focus & ☕ awake')
     await ui.unmount()
 
     await $.turn.complete(done)
