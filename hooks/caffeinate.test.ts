@@ -21,10 +21,10 @@ function fakeEngine(on: On, exitCode?: number) {
   })
   // mock.clock would wait for the event loop to settle, which the child above never lets it do
   on('clock.now', () => ({ value: calls.now }))
-  on('ui.status', (_$, e) => {
+  on('state.set', (_$, e, next) => {
     calls.statusCalls++
-    calls.status = e.text
-    return { value: undefined }
+    calls.status = e.value ? '☕' : undefined
+    return next(e)
   })
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
@@ -115,7 +115,28 @@ test('also holds lid-closed sleep when keepAwakeLidClosed is on', { options: { k
   expect(calls.argv).toEqual(['/usr/bin/caffeinate', '-d', '-i', '-s', '-t', '300'])
 })
 
-test('pins nothing to the status line when showStatus is off', { options: { showStatus: false } }, async ($, on) => {
+test('adds ☕ to the prompt footer modes only while holding', async ($, on) => {
+  // a caffeinate that fails at once: a running one never lets mount settle
+  fakeEngine(on, 1)
+  // stands for the engine's footer, drawing the modes it is handed
+  on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: (e.props as { modes: string[] }).modes.join(' & ') }))
+  const footer = { plugin: 'cc-mod-caffeinate', component: 'SessionMode', props: { modes: ['focus'] } } as const
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    await $.turn.start({ text: 'hi', turnId: 't1' })
+    let ui = await $.ui.mount({ ...footer, surface })
+    expect((await ui.find({ type: 'Text', text: /focus/ }))?.text).toBe('focus & ☕')
+    await ui.unmount()
+
+    await $.turn.complete(done)
+    await settle()
+    ui = await $.ui.mount({ ...footer, surface })
+    expect((await ui.find({ type: 'Text', text: /focus/ }))?.text).toBe('focus')
+    await ui.unmount()
+  }
+})
+
+test('shows no ☕ when showStatus is off', { options: { showStatus: false } }, async ($, on) => {
   const calls = fakeEngine(on)
 
   await $.turn.start({ text: 'hi', turnId: 't1' })

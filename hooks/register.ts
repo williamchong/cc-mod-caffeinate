@@ -1,3 +1,4 @@
+import { read } from 'claude-code'
 import type { ClassicHookInputs, EngineInterface, Register } from 'claude-code'
 
 // Each session holds its own `caffeinate` while it works. macOS keeps the
@@ -7,6 +8,9 @@ import type { ClassicHookInputs, EngineInterface, Register } from 'claude-code'
 // A bounded lease, renewed while active, so a session that dies without
 // unloading never leaves an orphan caffeinate holding the screen for long.
 const LEASE_SECONDS = 300
+
+// Redraws the prompt footer, where a ☕ mode label shows the hold.
+const holdingState = { plugin: 'cc-mod-caffeinate', key: 'isHolding' } as const
 
 // Not `idle`: it comes after the turn ends, while background jobs may hold.
 const WAITING_NOTIFICATION = /permission|elicitation/
@@ -37,6 +41,9 @@ let hasBackgroundJob = false
 let backgroundSince = 0
 let isWaiting = false
 let lease: AsyncGenerator<unknown, unknown> | undefined
+// What this module last wrote to the footer. Unlike `$.state`, it starts over
+// on a reload, so a ☕ left from before the reload is not shown.
+let shownHolding: boolean | undefined
 
 function shouldHold() {
   return (isTurnRunning || hasBackgroundJob) && !isWaiting
@@ -79,7 +86,13 @@ async function hold($: EngineInterface) {
 
 function sync($: EngineInterface) {
   const isHolding = shouldHold()
-  if (showStatus) $.ui.status(isHolding ? '☕' : undefined)
+  if (showStatus && shownHolding !== isHolding) {
+    shownHolding = isHolding
+    // A plain set, not `update`, so rapid calls land in the order made.
+    $.state.set(holdingState, isHolding).catch(() => {
+      shownHolding = undefined
+    })
+  }
   if (isHolding && !lease) void hold($)
   if (!isHolding && lease) {
     // Not awaited: a pending pull on a silent child may hold return() back.
@@ -105,6 +118,12 @@ export const register: Register = (on, options) => {
   showStatus = options.showStatus !== false
   const minutes = options.backgroundHoldMinutes
   backgroundLimitMs = (typeof minutes === 'number' && minutes >= 0 ? minutes : 60) * 60_000
+
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+    // Read first: the read is what redraws the footer when the hold changes.
+    if (!(await read($, holdingState)) || shownHolding !== true) return next(e)
+    return next({ ...e, props: { ...e.props, modes: [...e.props.modes, '☕'] } })
+  })
 
   on('turn.start', ($, e, next) => {
     // A subagent's turn is part of main's or of a background job, held either way.

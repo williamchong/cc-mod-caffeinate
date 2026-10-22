@@ -5,6 +5,7 @@
   "author": { "name": "William Chong" },
   "repository": "https://github.com/williamchong/cc-mod-caffeinate",
   "license": "MIT",
+  "types": "./types/index.d.ts",
   "userConfig": {
     "keepAwakeLidClosed": {
       "type": "boolean",
@@ -14,8 +15,8 @@
     },
     "showStatus": {
       "type": "boolean",
-      "title": "Show ☕ in the status line",
-      "description": "Pin a ☕ under the prompt while the screen is held.",
+      "title": "Show ☕ in the prompt footer",
+      "description": "Show a ☕ beside the mode labels under the prompt while the screen is held.",
       "default": true
     },
     "backgroundHoldMinutes": {
